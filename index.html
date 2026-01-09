@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>プロンプト合体</title>
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --panel:#ffffff;
+      --text:#0f172a;
+      --muted:#5b6474;
+      --line:#e6e8f0;
+      --primary:#2563eb;
+      --primary2:#1d4ed8;
+      --danger:#dc2626;
+      --ok:#16a34a;
+      --shadow: 0 10px 24px rgba(15, 23, 42, .08);
+      --radius:14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Noto Sans Mono", monospace;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#0b1020;
+        --panel:#0f1630;
+        --text:#eaf0ff;
+        --muted:#a7b1c7;
+        --line:#223055;
+        --primary:#6aa7ff;
+        --primary2:#3f8cff;
+        --danger:#ff4d6d;
+        --ok:#2bd576;
+        --shadow: 0 14px 30px rgba(0,0,0,.35);
+      }
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap{ max-width: 1180px; margin: 18px auto 42px; padding: 0 14px; }
+
+    header{
+      display:flex; align-items:flex-end; justify-content:space-between; gap:14px;
+      margin-bottom: 12px;
+    }
+    h1{ font-size: 18px; margin:0; letter-spacing:.2px; }
+    .sub{
+      margin-top:6px;
+      font-size: 12px; color: var(--muted);
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    }
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding: 4px 10px;
+      background: rgba(255,255,255,.45);
+    }
+    @media (prefers-color-scheme: dark){
+      .chip{ background: rgba(0,0,0,.18); }
+    }
+    .chipSelect select{
+      width: 220px;
+      padding: 6px 8px;
+      border-radius: 10px;
+      border:1px solid var(--line);
+      background: transparent;
+      color: var(--text);
+      font-size: 12px;
+      outline:none;
+    }
+    .chipSelect select:focus{
+      border-color: rgba(37,99,235,.75);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
+    @media (prefers-color-scheme: dark){
+      .chipSelect select:focus{
+        border-color: rgba(106,167,255,.8);
+        box-shadow: 0 0 0 3px rgba(106,167,255,.18);
+      }
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap: 12px;
+      align-items:start;
+    }
+    @media (max-width: 980px){
+      .layout{ grid-template-columns: 1fr; }
+      header{ flex-direction:column; align-items:flex-start; }
+    }
+
+    .panel{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .panelHead{
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .panelTitle{
+      font-weight: 900; font-size: 13px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .panelBody{ padding: 12px; }
+
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .row + .row{ margin-top: 10px; }
+    .grow{ flex:1; min-width: 180px; }
+
+    input[type="text"], select, textarea{
+      width:100%;
+      border:1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,.65);
+      color: var(--text);
+      padding: 10px 12px;
+      outline:none;
+      font-size: 13px;
+    }
+    @media (prefers-color-scheme: dark){
+      input[type="text"], select, textarea{ background: rgba(0,0,0,.18); }
+    }
+    textarea{
+      font-family: var(--mono);
+      min-height: 320px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    input[type="text"]:focus, select:focus, textarea:focus{
+      border-color: rgba(37,99,235,.75);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+    }
+    @media (prefers-color-scheme: dark){
+      input[type="text"]:focus, select:focus, textarea:focus{
+        border-color: rgba(106,167,255,.8);
+        box-shadow: 0 0 0 3px rgba(106,167,255,.18);
+      }
+    }
+
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      gap:8px;
+      border:1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,.55);
+      cursor:pointer;
+      font-weight: 900;
+      font-size: 13px;
+      user-select:none;
+      color: var(--text);
+    }
+    @media (prefers-color-scheme: dark){
+      .btn{ background: rgba(255,255,255,.06); }
+    }
+    .btn:hover{ filter: brightness(1.02); }
+    .btn.primary{
+      background: linear-gradient(180deg, var(--primary), var(--primary2));
+      border-color: rgba(0,0,0,.0);
+      color: #fff;
+    }
+    .btn.ok{
+      background: linear-gradient(180deg, rgba(22,163,74,.95), rgba(22,163,74,.82));
+      border-color: rgba(0,0,0,.0);
+      color:#fff;
+    }
+    .btn.danger{
+      background: linear-gradient(180deg, var(--danger), rgba(220,38,38,.86));
+      border-color: rgba(0,0,0,.0);
+      color:#fff;
+    }
+    @media (prefers-color-scheme: dark){
+      .btn.danger{ background: linear-gradient(180deg, var(--danger), rgba(255,77,109,.78)); }
+      .btn.ok{ background: linear-gradient(180deg, var(--ok), rgba(43,213,118,.78)); color:#07120b; }
+    }
+    .btn.small{ padding: 8px 10px; border-radius: 10px; font-size: 12px; }
+
+    .hint{ font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 8px; }
+
+    .list{
+      display:flex; flex-direction:column;
+      gap: 6px;
+      max-height: 520px;
+      overflow:auto;
+      padding-right: 2px;
+    }
+    .sceneItem{
+      width:100%;
+      text-align:left;
+      border:1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,.55);
+      padding: 10px 10px;
+      cursor:pointer;
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+    }
+    @media (prefers-color-scheme: dark){
+      .sceneItem{ background: rgba(255,255,255,.06); }
+    }
+    .sceneItem:hover{ filter: brightness(1.02); }
+    .sceneItem.active{
+      border-color: rgba(37,99,235,.55);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.10);
+    }
+    @media (prefers-color-scheme: dark){
+      .sceneItem.active{
+        border-color: rgba(106,167,255,.65);
+        box-shadow: 0 0 0 3px rgba(106,167,255,.16);
+      }
+    }
+    .sceneName{ font-weight: 900; font-size: 13px; }
+    .sceneMeta{ font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .dot{
+      width:10px; height:10px; border-radius:999px; margin-top: 4px;
+      border:1px solid var(--line);
+      background: transparent;
+      flex: none;
+    }
+    .dot.draft{ background: rgba(234,179,8,.95); border-color: rgba(234,179,8,.25); }
+    @media (prefers-color-scheme: dark){
+      .dot.draft{ background: rgba(250,204,21,.95); }
+    }
+
+    details{
+      margin-top: 12px;
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    summary{
+      cursor:pointer;
+      list-style:none;
+      padding: 10px 12px;
+      font-weight: 900;
+      font-size: 13px;
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    summary::-webkit-details-marker{ display:none; }
+    .detailsBody{ padding: 12px; border-top:1px solid var(--line); }
+
+    .dangerZone{
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(220,38,38,.35);
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    }
+
+    .statusLine{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+      font-size: 12px; color: var(--muted);
+    }
+    .badge{
+      display:inline-flex; align-items:center; gap:6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.45);
+      color: var(--muted);
+    }
+    @media (prefers-color-scheme: dark){
+      .badge{ background: rgba(0,0,0,.18); }
+    }
+    .badge.warn{ color: #7c5a00; border-color: rgba(234,179,8,.35); }
+    @media (prefers-color-scheme: dark){
+      .badge.warn{ color: #ffe08a; }
+    }
+
+    .toast{
+      position: fixed; right: 16px; bottom: 16px;
+      background: rgba(15, 23, 42, .92);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: .18s ease;
+      pointer-events:none;
+    }
+    .toast.show{ opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>プロンプト合体</h1>
+        <div class="sub">
+          <span class="chip">Ctrl+Enter：合体してコピー</span>
+          <span class="chip">Ctrl+S：保存（シーン/固定は入力欄で自動切替）</span>
+          <span class="chip">Ctrl+Shift+S：名前を付けて保存</span>
+
+          <span class="chip chipSelect">
+            固定プリセット：
+            <select id="fixedSelect" aria-label="固定プリセット選択"></select>
+          </span>
+
+          <button class="btn small" id="openFixed">固定を編集</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="btn primary" id="mergeCopy">合体してコピー</button>
+        <button class="btn" id="copyOnly">出力だけコピー</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- Left: Scene Library -->
+      <section class="panel" aria-label="シーンライブラリ">
+        <div class="panelHead">
+          <div class="panelTitle">シーン一覧</div>
+          <div class="statusLine">
+            <span class="badge" id="sceneCount">0件</span>
+          </div>
+        </div>
+        <div class="panelBody">
+          <div class="row">
+            <input id="search" type="text" class="grow" placeholder="検索（名前）" />
+            <button class="btn small" id="newScene">新規</button>
+          </div>
+
+          <div class="hint" style="margin-top:6px;">
+            選ぶ → 右の欄に即反映。編集内容は<strong>下書きとして自動退避</strong>されます（消えません）。
+          </div>
+
+          <div class="list" id="sceneList" style="margin-top:10px;"></div>
+
+          <div class="dangerZone">
+            <button class="btn danger" id="deleteScene" disabled>選択中を削除</button>
+            <span class="hint" style="margin:0;">※ 削除は確認が出ます</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: Scene Editor -->
+      <section class="panel" aria-label="シーン編集">
+        <div class="panelHead">
+          <div class="panelTitle">編集</div>
+          <div class="statusLine">
+            <span class="badge" id="currentName">新規</span>
+            <span class="badge warn" id="dirtyBadge" style="display:none;">未保存（下書き）</span>
+          </div>
+        </div>
+        <div class="panelBody">
+          <div class="row">
+            <button class="btn ok" id="save">保存</button>
+            <button class="btn" id="saveAs">名前を付けて保存</button>
+            <button class="btn" id="revert" style="display:none;">保存済みに戻す</button>
+            <button class="btn" id="clearSceneInput">シーン入力をクリア</button>
+          </div>
+
+          <textarea id="scene" placeholder="シーンプロンプトを貼り付け（ここが作業の中心）"></textarea>
+
+          <div class="row" style="margin-top:10px;">
+            <button class="btn primary" id="mergeCopy2" style="flex:1; justify-content:center;">合体してコピー</button>
+            <button class="btn" id="showOutput">合体結果を開く</button>
+          </div>
+
+          <div class="hint">
+            メイン動線は「貼る → 合体してコピー」。保存・設定・固定編集は必要なときだけ。
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Output -->
+    <details id="outputDetails">
+      <summary>合体結果（確認・手動コピー用）</summary>
+      <div class="detailsBody">
+        <div class="row">
+          <button class="btn" id="refreshOutput">合体結果を更新</button>
+          <button class="btn" id="copyOutput">この欄をコピー</button>
+        </div>
+        <textarea id="output" style="min-height:220px; margin-top:10px;" placeholder="合体結果がここに表示されます"></textarea>
+        <div class="hint">
+          ※ 自動コピーが失敗する環境では、この欄を開いて Ctrl+C でコピーできます。
+        </div>
+      </div>
+    </details>
+
+    <!-- Fixed -->
+    <details id="fixedDetails">
+      <summary>固定プロンプト（プリセット対応 / 普段は閉じてOK）</summary>
+      <div class="detailsBody">
+        <div class="row">
+          <div class="statusLine">
+            <span class="badge" id="fixedCurrentName">—</span>
+            <span class="badge warn" id="fixedDirtyBadge" style="display:none;">未保存（下書き）</span>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:8px;">
+          <button class="btn ok" id="fixedSave">固定を保存</button>
+          <button class="btn" id="fixedSaveAs">固定を名前を付けて保存</button>
+          <button class="btn" id="fixedRevert" style="display:none;">保存済みに戻す</button>
+          <button class="btn" id="fixedClear">固定入力をクリア</button>
+        </div>
+
+        <textarea id="fixed" style="min-height:220px; margin-top:10px;" placeholder="固定プロンプト（キャラ固定・画風固定など）"></textarea>
+
+        <div class="dangerZone">
+          <button class="btn danger" id="fixedDelete">この固定プリセットを削除</button>
+          <span class="hint" style="margin:0;">※ 最後の1件は削除できません</span>
+        </div>
+
+        <div class="hint">
+          上の「固定プリセット」ドロップダウンで切替できます。切替しても編集内容は下書きとして保持されます。
+        </div>
+      </div>
+    </details>
+
+    <!-- Options -->
+    <details id="optionsDetails">
+      <summary>詳細設定（必要なときだけ）</summary>
+      <div class="detailsBody">
+        <div class="row">
+          <label style="min-width:88px; margin:0; color:var(--muted); font-size:12px;">区切り</label>
+          <select id="dividerPreset" class="grow">
+            <option value="\n\n" selected>空行（デフォルト）</option>
+            <option value="\n\n---\n\n">---</option>
+            <option value="\n\n================\n\n">====</option>
+            <option value="CUSTOM">カスタム</option>
+          </select>
+          <input id="dividerCustom" type="text" class="grow" placeholder="カスタム区切り（例：\n\n[SCENE]\n\n）" style="display:none;" />
+        </div>
+
+        <div class="row">
+          <label class="row" style="gap:8px; color:var(--muted); font-size:12px;">
+            <input type="checkbox" id="trim" checked />
+            空白を整理して合体する（先頭は保持・末尾のみ整理）
+          </label>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <button class="btn" id="exportJson">エクスポート（シーン＋固定 / JSON）</button>
+          <label class="btn" for="importJson" style="cursor:pointer;">インポート</label>
+          <input id="importJson" type="file" accept="application/json" style="display:none;" />
+          <span class="hint" style="margin:0;">※ PC移行・バックアップ用</span>
+        </div>
+      </div>
+    </details>
+
+  </div>
+
+  <div id="toast" class="toast">コピーしました</div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    // ---- DOM ----
+    const search = $("search");
+    const sceneList = $("sceneList");
+    const sceneCount = $("sceneCount");
+    const currentNameBadge = $("currentName");
+    const dirtyBadge = $("dirtyBadge");
+    const deleteSceneBtn = $("deleteScene");
+
+    const scene = $("scene");
+    const fixed = $("fixed");
+    const output = $("output");
+
+    const fixedSelect = $("fixedSelect");
+    const fixedCurrentNameBadge = $("fixedCurrentName");
+    const fixedDirtyBadge = $("fixedDirtyBadge");
+    const fixedDeleteBtn = $("fixedDelete");
+
+    const fixedDetails = $("fixedDetails");
+    const outputDetails = $("outputDetails");
+
+    const dividerPreset = $("dividerPreset");
+    const dividerCustom = $("dividerCustom");
+    const trim = $("trim");
+
+    const toast = $("toast");
+
+    // ---- Storage keys: Scene ----
+    const LS_SCENE_LIB = "pm_scene_library_v3";            // { name: {text, updatedAt} }
+    const LS_SCENE_SELECTED = "pm_selected_scene_name_v3"; // string
+    const LS_SCENE_DRAFT_NEW = "pm_draft_new_v3";
+    const LS_SCENE_DRAFT_PREFIX = "pm_draft_scene_v3_";    // + encodeURIComponent(name)
+
+    // ---- Storage keys: Fixed presets ----
+    const LS_FIXED_LIB = "pm_fixed_library_v1";            // { name: {text, updatedAt} }
+    const LS_FIXED_SELECTED = "pm_selected_fixed_name_v1"; // string
+    const LS_FIXED_DRAFT_PREFIX = "pm_draft_fixed_v1_";    // + encodeURIComponent(name)
+
+    // (migration from older single-fixed key)
+    const LS_OLD_FIXED_SINGLE = "pm_fixed_v3";
+
+    // ---- State ----
+    let currentSceneName = ""; // "" => 新規（未保存）
+    let currentFixedName = ""; // 常にどれか選択（なければ作る）
+    let lastMerged = "";
+
+    // ---- Utils ----
+    function showToast(msg){
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 1200);
+    }
+    function nowISO(){ return new Date().toISOString(); }
+
+    function toLF(s){
+      // Windows CRLF / old Mac CR を LF に統一（行欠落系の事故予防）
+      return (s ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    }
+
+    // ★重要：先頭は触らず、末尾だけ整える（先頭行が消える事故を防止）
+function normalizeForMerge(s){
+  const t = (s ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  if (!trim.checked) return t;
+
+  // 先頭は絶対に触らない（= 1行目が消える事故を防ぐ）
+  // 行末の半角スペース/タブだけ除去（安全）
+  return t
+    .split("\n")
+    .map(line => line.replace(/[ \t]+$/g, ""))
+    .join("\n");
+}
+
+
+
+    function getDivider(){
+      const v = dividerPreset.value;
+      if (v === "CUSTOM") return dividerCustom.value.replaceAll("\\n", "\n");
+      return v.replaceAll("\\n", "\n");
+    }
+
+    function merge(){
+      const a = normalizeForMerge(fixed.value);
+      const b = normalizeForMerge(scene.value);
+      const d = getDivider();
+      if (!a && !b) return "";
+      if (!a) return b;
+      if (!b) return a;
+      return a + d + b;
+    }
+
+    async function copyToClipboard(text){
+      try{
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        try{
+          output.value = text;
+          outputDetails.open = true;
+          output.focus();
+          output.select();
+          return document.execCommand("copy");
+        } catch {
+          return false;
+        }
+      }
+    }
+
+    function formatUpdated(iso){
+      if (!iso) return "";
+      const d = new Date(iso);
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,"0");
+      const day = String(d.getDate()).padStart(2,"0");
+      const hh = String(d.getHours()).padStart(2,"0");
+      const mm = String(d.getMinutes()).padStart(2,"0");
+      return `${y}-${m}-${day} ${hh}:${mm}`;
+    }
+
+    // =========================
+    // Scene Library + Drafts
+    // =========================
+    function readSceneLib(){
+      try{
+        const raw = localStorage.getItem(LS_SCENE_LIB);
+        if (!raw) return {};
+        const obj = JSON.parse(raw);
+        return (obj && typeof obj === "object") ? obj : {};
+      } catch { return {}; }
+    }
+    function writeSceneLib(lib){
+      localStorage.setItem(LS_SCENE_LIB, JSON.stringify(lib));
+    }
+    function sceneDraftKey(name){
+      return LS_SCENE_DRAFT_PREFIX + encodeURIComponent(name);
+    }
+    // ★null = 下書きなし / "" = 空の下書きあり（区別する）
+    function getSceneDraftRaw(name){
+      if (!name) return localStorage.getItem(LS_SCENE_DRAFT_NEW);
+      return localStorage.getItem(sceneDraftKey(name));
+    }
+    function setSceneDraft(name, text){
+      if (!name) localStorage.setItem(LS_SCENE_DRAFT_NEW, text ?? "");
+      else localStorage.setItem(sceneDraftKey(name), text ?? "");
+    }
+    function clearSceneDraft(name){
+      if (!name) localStorage.removeItem(LS_SCENE_DRAFT_NEW);
+      else localStorage.removeItem(sceneDraftKey(name));
+    }
+    function getSceneSavedText(name){
+      const lib = readSceneLib();
+      return lib[name]?.text ?? "";
+    }
+    function sceneHasDirtyDraft(name){
+      const saved = getSceneSavedText(name);
+      const draft = getSceneDraftRaw(name);
+      return draft !== null && draft !== saved;
+    }
+    function sortedSceneNames(lib, filterText){
+      const q = (filterText ?? "").trim().toLowerCase();
+      const names = Object.keys(lib).filter(n => n.toLowerCase().includes(q));
+      return names.sort((a,b)=>{
+        const ua = lib[a]?.updatedAt ?? "";
+        const ub = lib[b]?.updatedAt ?? "";
+        if (ua !== ub) return ua < ub ? 1 : -1;
+        return a.localeCompare(b, "ja");
+      });
+    }
+    function renderSceneList(){
+      const lib = readSceneLib();
+      const names = sortedSceneNames(lib, search.value);
+      sceneList.innerHTML = "";
+
+      for (const name of names){
+        const item = document.createElement("button");
+        item.className = "sceneItem" + (name === currentSceneName ? " active" : "");
+        item.type = "button";
+
+        const left = document.createElement("div");
+        const title = document.createElement("div");
+        title.className = "sceneName";
+        title.textContent = name;
+
+        const meta = document.createElement("div");
+        meta.className = "sceneMeta";
+        meta.textContent = "更新: " + formatUpdated(lib[name]?.updatedAt);
+
+        left.appendChild(title);
+        left.appendChild(meta);
+
+        const dot = document.createElement("div");
+        dot.className = "dot" + (sceneHasDirtyDraft(name) ? " draft" : "");
+        dot.title = sceneHasDirtyDraft(name) ? "未保存の下書きあり" : "";
+
+        item.appendChild(left);
+        item.appendChild(dot);
+
+        item.addEventListener("click", () => selectScene(name));
+        sceneList.appendChild(item);
+      }
+
+      sceneCount.textContent = `${Object.keys(lib).length}件`;
+      deleteSceneBtn.disabled = !currentSceneName;
+    }
+
+    function updateSceneDirtyUI(){
+      if (!currentSceneName){
+        const hasText = (scene.value ?? "").length > 0;
+        dirtyBadge.style.display = hasText ? "inline-flex" : "none";
+        $("revert").style.display = "none";
+        currentNameBadge.textContent = "新規";
+        return;
+      }
+      const saved = getSceneSavedText(currentSceneName);
+      const dirty = (scene.value ?? "") !== saved;
+      dirtyBadge.style.display = dirty ? "inline-flex" : "none";
+      $("revert").style.display = dirty ? "inline-flex" : "none";
+      currentNameBadge.textContent = currentSceneName;
+    }
+
+    function selectScene(name){
+      currentSceneName = name;
+      localStorage.setItem(LS_SCENE_SELECTED, name);
+
+      const draft = getSceneDraftRaw(name);
+      scene.value = (draft !== null) ? draft : getSceneSavedText(name);
+
+      updateSceneDirtyUI();
+      renderSceneList();
+      showToast("シーンを呼び出しました");
+    }
+
+    function newScene(){
+      currentSceneName = "";
+      localStorage.setItem(LS_SCENE_SELECTED, "");
+      const draft = getSceneDraftRaw("");
+      scene.value = (draft !== null) ? draft : "";
+      updateSceneDirtyUI();
+      renderSceneList();
+      showToast("新規シーン");
+    }
+
+    function saveSceneToCurrent(){
+      if (!currentSceneName){
+        saveSceneAsFlow();
+        return;
+      }
+      const lib = readSceneLib();
+      lib[currentSceneName] = { text: scene.value ?? "", updatedAt: nowISO() };
+      writeSceneLib(lib);
+      clearSceneDraft(currentSceneName);
+      updateSceneDirtyUI();
+      renderSceneList();
+      showToast("保存しました");
+    }
+
+    function saveSceneAsFlow(){
+      const lib = readSceneLib();
+      const suggestion = currentSceneName || "";
+      const name = (prompt("保存名を入力してください（シーン）", suggestion) ?? "").trim();
+      if (!name){ showToast("キャンセル"); return; }
+
+      const exists = !!lib[name];
+      if (exists){
+        const ok = confirm(`「${name}」は既にあります。上書きしますか？`);
+        if (!ok){ showToast("キャンセル"); return; }
+      }
+
+      lib[name] = { text: scene.value ?? "", updatedAt: nowISO() };
+      writeSceneLib(lib);
+
+      currentSceneName = name;
+      localStorage.setItem(LS_SCENE_SELECTED, name);
+
+      clearSceneDraft(name);
+      // 新規下書きは残しても良いが、誤復元を防ぐなら消す
+      // clearSceneDraft("");
+
+      updateSceneDirtyUI();
+      renderSceneList();
+      showToast(exists ? "上書き保存しました" : "名前を付けて保存しました");
+    }
+
+    function revertSceneToSaved(){
+      if (!currentSceneName) return;
+      scene.value = getSceneSavedText(currentSceneName);
+      clearSceneDraft(currentSceneName);
+      updateSceneDirtyUI();
+      renderSceneList();
+      showToast("保存済みに戻しました");
+    }
+
+    function deleteCurrentScene(){
+      if (!currentSceneName) return;
+      const ok = confirm(`「${currentSceneName}」を削除しますか？（元に戻せません）`);
+      if (!ok) return;
+
+      const lib = readSceneLib();
+      delete lib[currentSceneName];
+      writeSceneLib(lib);
+
+      clearSceneDraft(currentSceneName);
+      currentSceneName = "";
+      localStorage.setItem(LS_SCENE_SELECTED, "");
+
+      const draft = getSceneDraftRaw("");
+      scene.value = (draft !== null) ? draft : "";
+
+      updateSceneDirtyUI();
+      renderSceneList();
+      showToast("削除しました");
+    }
+
+    // =========================
+    // Fixed Presets + Drafts
+    // =========================
+    function readFixedLib(){
+      try{
+        const raw = localStorage.getItem(LS_FIXED_LIB);
+        if (!raw) return {};
+        const obj = JSON.parse(raw);
+        return (obj && typeof obj === "object") ? obj : {};
+      } catch { return {}; }
+    }
+    function writeFixedLib(lib){
+      localStorage.setItem(LS_FIXED_LIB, JSON.stringify(lib));
+    }
+    function fixedDraftKey(name){
+      return LS_FIXED_DRAFT_PREFIX + encodeURIComponent(name);
+    }
+    function getFixedDraftRaw(name){
+      return localStorage.getItem(fixedDraftKey(name)); // null or string
+    }
+    function setFixedDraft(name, text){
+      localStorage.setItem(fixedDraftKey(name), text ?? "");
+    }
+    function clearFixedDraft(name){
+      localStorage.removeItem(fixedDraftKey(name));
+    }
+    function getFixedSavedText(name){
+      const lib = readFixedLib();
+      return lib[name]?.text ?? "";
+    }
+    function fixedHasDirtyDraft(name){
+      const saved = getFixedSavedText(name);
+      const draft = getFixedDraftRaw(name);
+      return draft !== null && draft !== saved;
+    }
+    function sortedFixedNames(lib){
+      return Object.keys(lib).sort((a,b)=>{
+        const ua = lib[a]?.updatedAt ?? "";
+        const ub = lib[b]?.updatedAt ?? "";
+        if (ua !== ub) return ua < ub ? 1 : -1;
+        return a.localeCompare(b, "ja");
+      });
+    }
+    function renderFixedSelect(){
+      const lib = readFixedLib();
+      const names = sortedFixedNames(lib);
+
+      fixedSelect.innerHTML = "";
+      for (const name of names){
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        fixedSelect.appendChild(opt);
+      }
+
+      if (!names.includes(currentFixedName)){
+        currentFixedName = names[0] || "";
+        if (currentFixedName) localStorage.setItem(LS_FIXED_SELECTED, currentFixedName);
+      }
+      fixedSelect.value = currentFixedName;
+      updateFixedDirtyUI();
+    }
+
+    function updateFixedDirtyUI(){
+      fixedCurrentNameBadge.textContent = currentFixedName || "—";
+      if (!currentFixedName){
+        fixedDirtyBadge.style.display = "none";
+        $("fixedRevert").style.display = "none";
+        fixedDeleteBtn.disabled = true;
+        return;
+      }
+      const saved = getFixedSavedText(currentFixedName);
+      const dirty = (fixed.value ?? "") !== saved;
+      fixedDirtyBadge.style.display = dirty ? "inline-flex" : "none";
+      $("fixedRevert").style.display = dirty ? "inline-flex" : "none";
+
+      const lib = readFixedLib();
+      const count = Object.keys(lib).length;
+      fixedDeleteBtn.disabled = (count <= 1);
+    }
+
+    function selectFixed(name){
+      if (!name) return;
+      currentFixedName = name;
+      localStorage.setItem(LS_FIXED_SELECTED, name);
+
+      const draft = getFixedDraftRaw(name);
+      fixed.value = (draft !== null) ? draft : getFixedSavedText(name);
+
+      renderFixedSelect(); // selection + UI update
+      showToast("固定プリセットを切替");
+    }
+
+    function ensureFixedDefault(){
+      const lib = readFixedLib();
+      if (Object.keys(lib).length > 0) return;
+
+      // migrate from older single fixed if exists
+      const old = localStorage.getItem(LS_OLD_FIXED_SINGLE) ?? "";
+
+      const defaultName = "デフォルト";
+      lib[defaultName] = { text: old, updatedAt: nowISO() };
+      writeFixedLib(lib);
+
+      localStorage.setItem(LS_FIXED_SELECTED, defaultName);
+    }
+
+    function saveFixedToCurrent(){
+      if (!currentFixedName) return;
+      const lib = readFixedLib();
+      lib[currentFixedName] = { text: fixed.value ?? "", updatedAt: nowISO() };
+      writeFixedLib(lib);
+      clearFixedDraft(currentFixedName);
+      updateFixedDirtyUI();
+      renderFixedSelect();
+      showToast("固定を保存しました");
+    }
+
+    function saveFixedAsFlow(){
+      const lib = readFixedLib();
+      const suggestion = currentFixedName || "";
+      const name = (prompt("保存名を入力してください（固定）", suggestion) ?? "").trim();
+      if (!name){ showToast("キャンセル"); return; }
+
+      const exists = !!lib[name];
+      if (exists){
+        const ok = confirm(`「${name}」は既にあります。上書きしますか？`);
+        if (!ok){ showToast("キャンセル"); return; }
+      }
+
+      lib[name] = { text: fixed.value ?? "", updatedAt: nowISO() };
+      writeFixedLib(lib);
+
+      currentFixedName = name;
+      localStorage.setItem(LS_FIXED_SELECTED, name);
+
+      clearFixedDraft(name);
+      updateFixedDirtyUI();
+      renderFixedSelect();
+      showToast(exists ? "固定を上書き保存しました" : "固定を保存しました");
+    }
+
+    function revertFixedToSaved(){
+      if (!currentFixedName) return;
+      fixed.value = getFixedSavedText(currentFixedName);
+      clearFixedDraft(currentFixedName);
+      updateFixedDirtyUI();
+      renderFixedSelect();
+      showToast("固定を保存済みに戻しました");
+    }
+
+    function deleteCurrentFixed(){
+      const lib = readFixedLib();
+      const names = sortedFixedNames(lib);
+      if (names.length <= 1){
+        showToast("最後の1件は削除できません");
+        return;
+      }
+      const ok = confirm(`「${currentFixedName}」を削除しますか？（元に戻せません）`);
+      if (!ok) return;
+
+      delete lib[currentFixedName];
+      writeFixedLib(lib);
+      clearFixedDraft(currentFixedName);
+
+      // select next
+      const nextNames = sortedFixedNames(lib);
+      currentFixedName = nextNames[0];
+      localStorage.setItem(LS_FIXED_SELECTED, currentFixedName);
+
+      const draft = getFixedDraftRaw(currentFixedName);
+      fixed.value = (draft !== null) ? draft : getFixedSavedText(currentFixedName);
+
+      renderFixedSelect();
+      showToast("固定プリセットを削除しました");
+    }
+
+    // =========================
+    // Output actions
+    // =========================
+    function refreshOutput(){
+      lastMerged = merge();
+      output.value = lastMerged;
+    }
+
+    async function doMergeCopy(){
+      refreshOutput();
+      if (!lastMerged){
+        showToast("空です");
+        return;
+      }
+      const ok = await copyToClipboard(lastMerged);
+      if (ok){
+        showToast("合体してコピーしました");
+      } else {
+        outputDetails.open = true;
+        showToast("コピーに失敗：出力欄を開きました");
+      }
+    }
+
+    // =========================
+    // Export / Import
+    // =========================
+    $("exportJson").addEventListener("click", () => {
+      const data = {
+        version: 2,
+        exportedAt: nowISO(),
+        scenes: readSceneLib(),
+        fixedPresets: readFixedLib()
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `prompt_tool_backup_${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("エクスポートしました");
+    });
+
+    $("importJson").addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try{
+        const text = await file.text();
+        const obj = JSON.parse(text);
+
+        // scenes
+        if (obj?.scenes && typeof obj.scenes === "object"){
+          const lib = readSceneLib();
+          for (const [name, payload] of Object.entries(obj.scenes)){
+            if (!payload || typeof payload !== "object") continue;
+            lib[name] = { text: String(payload.text ?? ""), updatedAt: payload.updatedAt || nowISO() };
+          }
+          writeSceneLib(lib);
+        }
+
+        // fixed
+        if (obj?.fixedPresets && typeof obj.fixedPresets === "object"){
+          const lib = readFixedLib();
+          for (const [name, payload] of Object.entries(obj.fixedPresets)){
+            if (!payload || typeof payload !== "object") continue;
+            lib[name] = { text: String(payload.text ?? ""), updatedAt: payload.updatedAt || nowISO() };
+          }
+          writeFixedLib(lib);
+        }
+
+        renderSceneList();
+        renderFixedSelect();
+        showToast("インポートしました");
+      } catch {
+        showToast("インポート失敗（JSON形式を確認）");
+      } finally {
+        e.target.value = "";
+      }
+    });
+
+    // =========================
+    // Wiring (buttons / inputs)
+    // =========================
+    $("mergeCopy").addEventListener("click", doMergeCopy);
+    $("mergeCopy2").addEventListener("click", doMergeCopy);
+
+    $("copyOnly").addEventListener("click", async () => {
+      if (!output.value) refreshOutput();
+      if (!output.value){ showToast("空です"); return; }
+      const ok = await copyToClipboard(output.value);
+      showToast(ok ? "コピーしました" : "コピーに失敗しました");
+    });
+
+    $("showOutput").addEventListener("click", () => {
+      refreshOutput();
+      outputDetails.open = true;
+      output.focus();
+    });
+
+    $("refreshOutput").addEventListener("click", () => {
+      refreshOutput();
+      showToast("更新しました");
+    });
+
+    $("copyOutput").addEventListener("click", async () => {
+      if (!output.value) refreshOutput();
+      if (!output.value){ showToast("空です"); return; }
+      outputDetails.open = true;
+      output.focus();
+      output.select();
+      const ok = await copyToClipboard(output.value);
+      showToast(ok ? "コピーしました" : "コピーに失敗しました");
+    });
+
+    // Scene buttons
+    $("save").addEventListener("click", saveSceneToCurrent);
+    $("saveAs").addEventListener("click", saveSceneAsFlow);
+    $("revert").addEventListener("click", revertSceneToSaved);
+    $("clearSceneInput").addEventListener("click", () => {
+      scene.value = "";
+      setSceneDraft(currentSceneName, "");
+      updateSceneDirtyUI();
+      renderSceneList();
+      showToast("シーン入力をクリア");
+    });
+    $("newScene").addEventListener("click", newScene);
+    $("deleteScene").addEventListener("click", deleteCurrentScene);
+
+    search.addEventListener("input", renderSceneList);
+
+    scene.addEventListener("input", () => {
+      setSceneDraft(currentSceneName, scene.value ?? "");
+      updateSceneDirtyUI();
+      renderSceneList();
+    });
+
+    // Fixed select (header)
+    fixedSelect.addEventListener("change", () => selectFixed(fixedSelect.value));
+
+    // Fixed buttons
+    $("fixedSave").addEventListener("click", saveFixedToCurrent);
+    $("fixedSaveAs").addEventListener("click", saveFixedAsFlow);
+    $("fixedRevert").addEventListener("click", revertFixedToSaved);
+    $("fixedClear").addEventListener("click", () => {
+      fixed.value = "";
+      setFixedDraft(currentFixedName, "");
+      updateFixedDirtyUI();
+      showToast("固定入力をクリア");
+    });
+    $("fixedDelete").addEventListener("click", deleteCurrentFixed);
+
+    fixed.addEventListener("input", () => {
+      if (!currentFixedName) return;
+      setFixedDraft(currentFixedName, fixed.value ?? "");
+      updateFixedDirtyUI();
+      renderFixedSelect();
+    });
+
+    $("openFixed").addEventListener("click", () => {
+      fixedDetails.open = true;
+      fixed.focus();
+    });
+
+    // Options
+    dividerPreset.addEventListener("change", () => {
+      dividerCustom.style.display = dividerPreset.value === "CUSTOM" ? "block" : "none";
+      // default is always blank line if you never touch it
+    });
+    dividerCustom.addEventListener("input", () => {});
+    trim.addEventListener("change", () => {});
+
+    // Keyboard shortcuts:
+    // - Ctrl+Enter: merge & copy
+    // - Ctrl+S / Ctrl+Shift+S: focused textarea decides (scene or fixed)
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.key === "Enter"){
+        e.preventDefault();
+        doMergeCopy();
+        return;
+      }
+      if (e.ctrlKey && (e.key === "s" || e.key === "S")){
+        e.preventDefault();
+        const inFixed = (document.activeElement === fixed);
+        const inScene = (document.activeElement === scene);
+
+        if (e.shiftKey){
+          if (inFixed) saveFixedAsFlow();
+          else saveSceneAsFlow();
+        } else {
+          if (inFixed) saveFixedToCurrent();
+          else saveSceneToCurrent();
+        }
+      }
+    });
+
+    // =========================
+    // Init
+    // =========================
+    function init(){
+      // options defaults
+      dividerPreset.value = "\n\n";
+      dividerCustom.value = "";
+      dividerCustom.style.display = "none";
+      trim.checked = true;
+
+      // fixed presets
+      ensureFixedDefault();
+      const fixedLib = readFixedLib();
+      const fixedNames = sortedFixedNames(fixedLib);
+      currentFixedName = localStorage.getItem(LS_FIXED_SELECTED) ?? fixedNames[0];
+      if (!fixedLib[currentFixedName]) currentFixedName = fixedNames[0];
+      localStorage.setItem(LS_FIXED_SELECTED, currentFixedName);
+
+      // load fixed (draft priority)
+      const fixedDraft = getFixedDraftRaw(currentFixedName);
+      fixed.value = (fixedDraft !== null) ? fixedDraft : getFixedSavedText(currentFixedName);
+      renderFixedSelect();
+      updateFixedDirtyUI();
+
+      // scenes
+      const sceneLib = readSceneLib();
+      const sel = localStorage.getItem(LS_SCENE_SELECTED) ?? "";
+      if (sel && sceneLib[sel]){
+        currentSceneName = sel;
+        const draft = getSceneDraftRaw(sel);
+        scene.value = (draft !== null) ? draft : getSceneSavedText(sel);
+      } else {
+        currentSceneName = "";
+        const draft = getSceneDraftRaw("");
+        scene.value = (draft !== null) ? draft : "";
+      }
+      updateSceneDirtyUI();
+      renderSceneList();
+
+      // output
+      refreshOutput();
+    }
+
+    init();
+  </script>
+</body>
+</html>
